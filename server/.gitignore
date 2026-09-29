@@ -6,3 +6,5 @@ node_modules/
 .body.json
 t.txt
 *.log
+test-results/
+playwright-report/

@@ -201,6 +201,12 @@ export function buildApp(db: Db) {
     return { ok: true }
   })
 
+  app.post('/api/tasks/:id/reject', async (req) => {
+    const me = await auth(req, await groupOfTask((req.params as any).id))
+    await L.rejectTask(db, me.userId, (req.params as any).id, (req.body as any)?.reason)
+    return { ok: true }
+  })
+
   app.post('/api/tasks/:id/close', async (req) => {
     const me = await auth(req, await groupOfTask((req.params as any).id))
     await L.closeOverdueTask(db, me.userId, (req.params as any).id, (req.body as any)?.reason)

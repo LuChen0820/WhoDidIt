@@ -257,6 +257,27 @@ export async function acceptTask(db: Db, actorId: string, taskId: string) {
     })
 }
 
+/** 驳回：产出不合格，退回负责人重做。
+ *  没有这一步，「验收」就只有通过一条路，不合格的东西会永远挂在待验收。 */
+export async function rejectTask(db: Db, actorId: string, taskId: string, reason: string) {
+  const t = await task(db, taskId)
+  if (!t.assignee_id) throw new DomainError('任务还没有负责人，无从驳回')
+  if (t.assignee_id === actorId) throw new DomainError('不能驳回自己负责的任务')
+  if (t.status !== 'review') throw new DomainError(`任务当前是 ${t.status}，只有待验收的任务能驳回`)
+  const why = String(reason ?? '').trim()
+  if (!why) throw new DomainError('驳回必须写明理由，否则等于凭空把人打回去')
+  await requireMember(db, t.group_id, actorId)
+
+  await q(db, `update tasks set status='doing' where id=$1`, [taskId])
+  await append(db, {
+    groupId: t.group_id,
+    actorId,
+    taskId,
+    type: 'review_rejected',
+    payload: { assignee: t.assignee_id, reason: why, points: Number(t.points) },
+  })
+}
+
 /** 关闭一个已到期却始终没交付的任务：扣逾期分，但不给任何交付分 */
 export async function closeOverdueTask(db: Db, actorId: string, taskId: string, reason?: string) {
   const t = await task(db, taskId)
@@ -458,11 +479,11 @@ left join review_bonus   r on r.group_id = m.group_id and r.user_id = m.user_id
 left join attendance     a on a.group_id = m.group_id and a.user_id = m.user_id
 left join overdue        o on o.group_id = m.group_id and o.user_id = m.user_id
 left join adjustment     j on j.group_id = m.group_id and j.user_id = m.user_id
-where m.active and m.role <> 'auditor'`
+where m.active and m.group_id = $1`
 
 export async function computeLedger(db: Db, groupId: string) {
   await q(db, `delete from ledger where group_id=$1`, [groupId])
-  await q(db, REBUILD, [])
+  await q(db, REBUILD, [groupId])
   return readLedger(db, groupId)
 }
 

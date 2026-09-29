@@ -1,7 +1,8 @@
 import { open, migrate } from './db.ts'
 import { buildApp } from './http/app.ts'
 
-const db = await open(process.env.PGDATA ?? './.pgdata')
+// 默认落盘持久化（真实使用）；显式 PGDATA=memory 时用内存库（测试用）
+const db = await open(process.env.PGDATA === 'memory' ? undefined : (process.env.PGDATA ?? './.pgdata'))
 await migrate(db)
 
 const app = buildApp(db)

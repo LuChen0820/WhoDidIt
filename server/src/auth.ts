@@ -4,7 +4,7 @@ import { q, type Db } from './db.ts'
 export const COOKIE = 'wd_session'
 const digest = (t: string) => createHash('sha256').update(t).digest('hex')
 
-export type Principal = { userId: string; groupId: string; role: 'owner' | 'member' | 'auditor' }
+export type Principal = { userId: string; groupId: string; role: 'owner' | 'member' }
 
 export async function createSession(db: Db, userId: string, groupId: string) {
   const token = randomBytes(32).toString('base64url')

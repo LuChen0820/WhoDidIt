@@ -200,6 +200,28 @@ test('组员不能替别人验收，也不能自验自计', async () => {
   assert.equal(ok.status, 200)
 })
 
+test('两个组各自打开看板互不干扰', async () => {
+  // 回归：账本重建 SQL 曾漏掉 group_id 过滤，第二个组一看板就主键冲突 500。
+  // 单元测试每个用例只建一个组，所以一直没暴露。
+  const c = await twoGroups()
+  const ta = await c.call('POST', '/api/tasks', {
+    cookie: c.a.cookie,
+    payload: { title: 'A 组的活', points: 3 },
+  })
+  assert.equal(ta.status, 200)
+
+  const a1 = await c.call('GET', '/api/board', { cookie: c.a.cookie })
+  assert.equal(a1.status, 200)
+
+  const b1 = await c.call('GET', '/api/board', { cookie: c.b.cookie })
+  assert.equal(b1.status, 200, `B 组看板不该报错：${JSON.stringify(b1.body)}`)
+  assert.equal(b1.body.tasks.length, 0, 'B 组不该看到 A 组的任务')
+  assert.equal(b1.body.members.length, 1, 'B 组账本里不该混进 A 组的成员')
+
+  const a2 = await c.call('GET', '/api/ledger', { cookie: c.a.cookie })
+  assert.equal(a2.body.rows.length, 1, 'A 组账本不该被 B 组覆盖')
+})
+
 /* ---------------- 端到端闭环 ---------------- */
 
 test('完整走一遍：建组 → 邀请 → 派活 → 提交 → 验收 → 结算', async () => {

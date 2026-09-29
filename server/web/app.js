@@ -8,7 +8,10 @@ const esc = (s) =>
 /** 只放行 http/https。esc() 只转义引号，挡不住 javascript: 这种协议级攻击。 */
 const safeHref = (u) => (/^https?:\/\//i.test(String(u ?? '').trim()) ? String(u).trim() : null)
 
-const PALETTE = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#94a3b8', '#ec4899', '#8b5cf6', '#14b8a6']
+/** 加深版调色板：白字对比度全部 ≥ 4.5:1（WCAG AA）。
+ *  原来的 8 色里有 6 色白字不达标（最低 2.15:1）。
+ *  同一批颜色也用于占比条和进度条，改一次三处受益。 */
+const PALETTE = ['#4338ca', '#0369a1', '#047857', '#b45309', '#475569', '#be185d', '#6d28d9', '#0f766e']
 const COLS = [['todo', '待认领'], ['doing', '进行中'], ['review', '待验收'], ['done', '已完成']]
 const EVT = {
   task_created: '创建任务', claimed: '认领任务', dispatched: '被指派', declined: '拒绝接受指派',
@@ -57,10 +60,13 @@ function pending(el, text = '处理中…') {
   return el._restore
 }
 
-const c = (id) => S.color.get(id) ?? '#94a3b8'
+const c = (id) => S.color.get(id) ?? '#475569'
 const nameOf = (id) => S.board?.members.find((m) => m.user_id === id)?.name ?? '—'
 const roleOf = (id) => S.board?.members.find((m) => m.user_id === id)?.role ?? 'member'
 const isOwner = () => S.me?.role === 'owner'
+
+/** 关抽屉必须连遮罩一起关：只关抽屉会让整页点不动 */
+function hideDrawer(){ $('#drawer').classList.remove('on'); $('#mask').classList.remove('on') }
 
 function toast(msg) {
   const el = $('#toast')
@@ -129,7 +135,7 @@ function viewBoard() {
   const cols = COLS.map(([k, label]) => {
     const list = tasks.filter((t) => (t.status === 'closed' ? 'done' : t.status) === k)
     return `<div class="col"><div class="col-h">${label}<b>${list.length}</b></div>
-      ${list.map(taskCard).join('') || `<div style="font-size:12px;color:#a8adbf;text-align:center;padding:14px">—</div>`}
+      ${list.map(taskCard).join('') || `<div style="font-size:12.5px;color:var(--sub);text-align:center;padding:14px">—</div>`}
     </div>`
   }).join('')
 
@@ -187,7 +193,7 @@ function viewLedger() {
       : ''
     return `<div class="lrow">
       <div class="lname"><span class="mini" style="background:${c(r.user_id)}">${esc(r.name[0])}</span>
-        <div>${esc(r.name)}<div style="font-size:11px;color:var(--sub);font-weight:400">${r.user_id === S.me.userId ? '（你）' : ''}${roleOf(r.user_id) === 'owner' ? ' 组长' : ''}</div></div></div>
+        <div>${esc(r.name)}<div style="font-size:12px;color:var(--sub);font-weight:400">${r.user_id === S.me.userId ? '（你）' : ''}${roleOf(r.user_id) === 'owner' ? ' 组长' : ''}</div></div></div>
       <div><div class="bar">${posBar}</div>
         ${negBar}
         <div class="sub-bar">${parts.map(([l, v]) =>
@@ -245,7 +251,7 @@ function viewTeam() {
   const opts = meetings.map((m) => `<option value="${m.id}">${esc(m.held_on)}（到 ${m.present} / 缺 ${m.absent}）</option>`).join('')
   const rows = S.board.members.map((m) => `<tr>
       <td><span class="mini" style="background:${c(m.user_id)}">${esc(m.name[0])}</span> ${esc(m.name)}${m.user_id === S.me.userId ? ' （你）' : ''}</td>
-      <td>${m.role === 'owner' ? '组长' : m.role === 'auditor' ? '教师' : '组员'}</td>
+      <td>${m.role === 'owner' ? '组长' : '组员'}</td>
       <td>${m.points.toFixed(1)}</td>
       <td style="${m.points < 0 ? 'color:var(--bad)' : ''}">${pctText(m.pct)}</td>
       <td>${isOwner() && meetings.length ? `<button class="btn s" data-act="attend" data-u="${m.user_id}" data-k="checkin">签到</button>
@@ -362,6 +368,8 @@ function actionsFor(t) {
   }
   if (t.status === 'review' && t.assignee_id !== me) {
     out.push(`<button class="btn s p" data-act="accept" data-id="${t.id}">验收通过 → 计入结算</button>`)
+    out.push(`<input id="rejWhy" style="padding:6px 9px;border:1px solid var(--line);border-radius:7px;min-width:150px" placeholder="驳回理由">`)
+    out.push(`<button class="btn s d" data-act="reject" data-id="${t.id}">驳回重做</button>`)
   }
   if (t.status === 'review' && t.assignee_id === me) {
     out.push(`<span class="hint">不能验收自己负责的任务</span>`)
@@ -428,7 +436,7 @@ document.addEventListener('click', (e) => {
   }
   else if (a === 'logout') guard(async () => { await api('POST', '/api/logout'); location.href = '/' })
   else if (a === 'openTask') guard(() => openTask(id))
-  else if (a === 'closeDrawer') { $('#drawer').classList.remove('on'); $('#mask').classList.remove('on') }
+  else if (a === 'closeDrawer') { hideDrawer() }
   else if (a === 'newTask') openTaskForm()
   else if (a === 'claim') guard(async () => { await api('POST', `/api/tasks/${id}/claim`); await refresh(); await openTask(id); toast('已认领，任务进入进行中') }, el)
   else if (a === 'dispatch') guard(async () => { await api('POST', `/api/tasks/${id}/dispatch`, { toUserId: $('#pick').value }); await refresh(); await openTask(id); toast('已指派') }, el)
@@ -439,24 +447,30 @@ document.addEventListener('click', (e) => {
   }, el)
   else if (a === 'decline') guard(async () => {
     await api('POST', `/api/tasks/${id}/decline`, { reason: '本人退回' })
-    await refresh(); $('#drawer').classList.remove('on'); toast('已退回待认领，这次拒绝已被记录')
+    await refresh(); hideDrawer(); toast('已退回待认领，这次拒绝已被记录')
   }, el)
   else if (a === 'accept') guard(async () => {
     const t = S.board.tasks.find((x) => x.id === id)
     await api('POST', `/api/tasks/${id}/accept`)
-    await refresh(); $('#drawer').classList.remove('on')
+    await refresh(); hideDrawer()
     const m = S.board.members.find((x) => x.user_id === t?.assignee_id)
     toast(m ? `已验收 · ${m.name} 现为 ${pctText(m.pct)}` : '已验收，贡献分当场入账')
   }, el)
+  else if (a === 'reject') guard(async () => {
+    const why = document.querySelector('#rejWhy')?.value?.trim()
+    if (!why) { toast('驳回必须写明理由'); return }
+    await api('POST', `/api/tasks/${id}/reject`, { reason: why })
+    await refresh(); await openTask(id); toast('已驳回，任务退回负责人重做')
+  }, el)
   else if (a === 'split') guard(async () => {
     await api('POST', `/api/tasks/${id}/split`)
-    await refresh(); $('#drawer').classList.remove('on')
+    await refresh(); hideDrawer()
     toast('已拆为两个子任务，父任务转为不计分的汇总节点')
   }, el)
   else if (a === 'closeOverdue') guard(async () => {
     const t = S.board.tasks.find((x) => x.id === id)
     await api('POST', `/api/tasks/${id}/close`, { reason: '逾期未交付' })
-    await refresh(); $('#drawer').classList.remove('on')
+    await refresh(); hideDrawer()
     toast(`已按逾期关闭 · ${t?.assignee_name ?? ''} 扣 ${(Math.min(t?.overdue_days ?? 0, 7) * 0.5).toFixed(1)} 分`)
   }, el)
   else if (a === 'attend') guard(async () => {
@@ -482,7 +496,7 @@ document.addEventListener('submit', (e) => {
   else if (a === 'doJoin') guard(async () => { await api('POST', '/api/join', v); location.href = '/' }, btn)
   else if (a === 'doCreateTask') guard(async () => {
     await api('POST', '/api/tasks', { ...v, assigneeId: v.assigneeId || null })
-    $('#drawer').classList.remove('on'); $('#mask').classList.remove('on')
+    hideDrawer()
     await refresh(); toast('任务已创建')
   }, btn)
   else if (a === 'doDispute') guard(async () => { await api('POST', '/api/disputes', v); await refresh(); toast('仲裁已生效，结算单已重算') }, btn)
@@ -495,8 +509,8 @@ document.addEventListener('submit', (e) => {
   }, btn)
 })
 
-$('#mask').addEventListener('click', () => { $('#drawer').classList.remove('on'); $('#mask').classList.remove('on') })
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#drawer').classList.remove('on'); $('#mask').classList.remove('on') } })
+$('#mask').addEventListener('click', () => { hideDrawer() })
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { hideDrawer() } })
 
 /* ------------------------------------------------------------------ 启动 */
 

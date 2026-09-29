@@ -9,6 +9,7 @@ import {
   declineTask,
   submitTask,
   acceptTask,
+  rejectTask,
   splitTask,
   createMeeting,
   closeOverdueTask,
@@ -115,6 +116,26 @@ test('重复验收不会造分：同一任务只有第一次验收计分', async
   })
   const after = await computeLedger(db, groupId)
   assert.equal(find(after, lin).delivered, find(before, lin).delivered, '重复验收不应增加分数')
+})
+
+test('驳回：退回重做、必须写理由、重做后只计一次分', async () => {
+  const { db, groupId, members } = await setup()
+  const chen = byName(members, '陈昊')
+  const lin = byName(members, '林嘉')
+  const t = await createTask(db, chen, { groupId, title: '搜索页', points: 4 })
+  await claimTask(db, lin, t)
+  await submitTask(db, lin, t)
+
+  await assert.rejects(() => rejectTask(db, chen, t, '   '), /理由/)
+  await rejectTask(db, chen, t, '缺少空状态和错误提示')
+
+  const st = await q<any>(db, `select status from tasks where id=$1`, [t])
+  assert.equal(st[0].status, 'doing', '驳回后退回进行中')
+  assert.equal(find(await computeLedger(db, groupId), lin).points, 0, '驳回本身不给分')
+
+  await submitTask(db, lin, t)
+  await acceptTask(db, chen, t)
+  assert.equal(find(await computeLedger(db, groupId), lin).points, 4, '重做后正常计分，且只算一次')
 })
 
 /* ============================ 3. 只有叶子任务计分 ============================ */

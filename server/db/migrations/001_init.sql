@@ -7,13 +7,18 @@
 --   5. 验收奖不计入总分，只单独展示 —— 否则组长既派活又验收，等于裁判当选手
 
 -- ============ 枚举 ============
-create type member_role as enum ('owner','member','auditor');
+-- ============ 枚举 ============
+-- 只保留代码里真的会产生或真的会读取的值。
+-- 曾声明过但零代码路径、现已删除的：task_weighted、no_response、reassigned、
+-- dispute_opened、blocked_by 列、auditor 角色。
+-- 它们让「完成度」虚高；需要时再加回来，比留着骗人好。
+create type member_role as enum ('owner','member');
 create type task_status as enum ('todo','doing','review','done','closed');
 create type event_type as enum (
   'group_created','member_joined',
-  'task_created','task_weighted','dispatched','claimed','declined','no_response',
-  'submitted','review_accepted','review_rejected','split','reassigned',
-  'dispute_opened','dispute_decided','checkin','absence_recorded'
+  'task_created','dispatched','claimed','declined',
+  'submitted','review_accepted','review_rejected','split',
+  'overdue_recorded','dispute_decided','checkin','absence_recorded'
 );
 
 -- ============ 身份（无密码：一次性邀请链接即凭证）============
@@ -66,12 +71,10 @@ create table tasks (
   points       numeric(6,2) not null check (points > 0 and points <= 20),
   assignee_id  uuid references users(id),
   status       task_status not null default 'todo',
-  blocked_by   uuid references tasks(id),
   due_date     date,
   has_children boolean not null default false,   -- true = 汇总节点，不计分
   created_by   uuid not null references users(id),
-  created_at   timestamptz not null default now(),
-  constraint no_self_block check (blocked_by is null or blocked_by <> id)
+  created_at   timestamptz not null default now()
 );
 create index on tasks (group_id, status);
 create index on tasks (parent_id);
@@ -128,18 +131,26 @@ create table ledger (
   delivered   numeric(8,2) not null default 0,
   review_bonus numeric(8,2) not null default 0,
   attendance  numeric(8,2) not null default 0,
+  overdue     numeric(8,2) not null default 0,
   adjustment  numeric(8,2) not null default 0,
   points      numeric(8,2) not null default 0,
   computed_at timestamptz not null default now(),
   primary key (group_id, user_id)
 );
 comment on column ledger.review_bonus is '验收他人产出的动作分：仅作独立指标展示，不计入 points';
+comment on column ledger.overdue is '迟交扣分：−0.5 × 迟交自然日数，单任务最多扣 7 天';
+
+-- 一个任务只允许有一条逾期事实。
+-- 逾期是「事件」不是「查询结果」：迟交天数只在任务终结那一刻写一次，
+-- 否则同一个人的历史会随「你什么时候问」而改变，账本就不再可重放。
+create unique index overdue_once_per_task on events (task_id)
+  where type = 'overdue_recorded';
 
 -- 占比：以「正分总和」为分母归一化。
 -- 仲裁或扣分可能把人打成 0 分甚至负分，若用全员总和当分母，
 -- 正负一抵消就可能得到 0 或负数，占比会直接失真。
 create view ledger_pct as
-select group_id, user_id, delivered, review_bonus, attendance, adjustment,
+select group_id, user_id, delivered, review_bonus, attendance, overdue, adjustment,
        points, computed_at,
        case when total = 0 then 0 else points / total * 100 end as pct
 from (
