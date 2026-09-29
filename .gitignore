@@ -1,0 +1,8 @@
+node_modules/
+.webdev/
+.pgdata/
+.smoke/
+.body.json
+*.log
+.DS_Store
+Thumbs.db

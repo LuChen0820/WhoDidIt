@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>谁在干活 · 小组作业贡献结算台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f6f7fb;--card:#fff;--line:#e6e8f0;--ink:#151722;--sub:#6b7186;
+  --brand:#4f46e5;--brand-soft:#eef0ff;--ok:#0f9d58;--warn:#d97706;--bad:#dc2626;
+  --r:12px;--sh:0 1px 2px rgba(20,23,34,.05),0 4px 16px rgba(20,23,34,.05);
+}
+body{font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:0 20px;height:56px;display:flex;align-items:center;gap:20px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.2px;white-space:nowrap}
+.logo .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#4f46e5,#8b5cf6);
+  display:grid;place-items:center;color:#fff;font-size:11px;font-weight:800}
+.pj{color:var(--sub);font-size:13px;padding-left:14px;border-left:1px solid var(--line);white-space:nowrap}
+nav{display:flex;gap:2px;margin-left:auto}
+nav button{padding:7px 14px;border-radius:8px;color:var(--sub);font-weight:500;white-space:nowrap;position:relative}
+nav button:hover{background:#eef0f5;color:var(--ink)}
+nav button.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+nav button .flag{position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--bad)}
+.avatars{display:flex}
+.avatars .a{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;
+  font-size:11px;font-weight:700;margin-left:-7px;border:2px solid #fff}
+
+main{max-width:1180px;margin:0 auto;padding:26px 20px 80px}
+.view{display:none;animation:fade .25s ease}
+.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+h1{font-size:21px;letter-spacing:-.4px}
+.h1row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:4px;flex-wrap:wrap}
+.note{color:var(--sub);font-size:13px;margin-bottom:20px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
+.pad{padding:18px}
+.sec-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sec-title .ai{font-size:10px;background:linear-gradient(135deg,#4f46e5,#8b5cf6);color:#fff;
+  padding:1px 6px;border-radius:5px;font-weight:700}
+.grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;align-items:start}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:9px;font-weight:600;
+  font-size:13px;border:1px solid var(--line);background:#fff;transition:.15s}
+.btn:hover{border-color:#c9cede;transform:translateY(-1px)}
+.btn.p{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.p:hover{background:#4338ca;box-shadow:0 6px 18px rgba(79,70,229,.3)}
+.btn.s{padding:6px 11px;font-size:12px;border-radius:7px}
+.btn.g{color:var(--sub)}
+.btn:disabled{opacity:.45;pointer-events:none}
+
+/* board */
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.col{background:#eff1f6;border:1px solid #e6e8f0;border-radius:var(--r);padding:10px;min-height:120px}
+.col-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;
+  color:var(--sub);padding:2px 4px 10px}
+.col-h b{color:var(--ink);background:#fff;border-radius:20px;padding:0 7px;font-size:11px}
+.task{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:9px;
+  cursor:pointer;transition:.15s;box-shadow:0 1px 2px rgba(20,23,34,.04)}
+.task:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:0 8px 20px rgba(79,70,229,.12)}
+.task.fresh{animation:pop .5s ease}
+@keyframes pop{0%{background:#eef0ff;border-color:var(--brand);transform:scale(.96)}100%{background:#fff}}
+.task .t{font-weight:600;font-size:13px;line-height:1.45;margin-bottom:9px}
+.task .m{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub)}
+.pill{background:#e9ecf5;color:#4b5268;border-radius:5px;padding:1px 6px;font-weight:600}
+.pill.w{background:#fef3c7;color:#92400e}
+.pill.d{background:#fee2e2;color:#991b1b}
+.mini{width:18px;height:18px;border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center}
+
+/* live contribution strip */
+.strip{display:flex;height:9px;border-radius:20px;overflow:hidden;margin:8px 0 14px}
+.strip i{transition:width .9s cubic-bezier(.4,0,.2,1)}
+.leg{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--sub)}
+.leg span{display:flex;align-items:center;gap:5px}
+.leg em{width:8px;height:8px;border-radius:3px;font-style:normal}
+.leg b{color:var(--ink)}
+
+/* drawer */
+#drawer{position:fixed;inset:0 0 0 auto;width:min(460px,100%);background:#fff;border-left:1px solid var(--line);
+  box-shadow:-20px 0 60px rgba(20,23,34,.12);transform:translateX(102%);transition:.28s cubic-bezier(.4,0,.2,1);
+  z-index:60;display:flex;flex-direction:column}
+#drawer.on{transform:none}
+.dh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start}
+.dh h3{font-size:16px;line-height:1.4;padding-right:12px}
+.dbody{padding:20px;overflow:auto;flex:1}
+.x{font-size:22px;color:var(--sub);line-height:1;padding:2px 8px;border-radius:6px}
+.x:hover{background:#f1f2f7;color:var(--ink)}
+.tl{position:relative;padding-left:22px}
+.tl:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl .ev{position:relative;margin-bottom:16px}
+.tl .ev:before{content:"";position:absolute;left:-22px;top:5px;width:12px;height:12px;border-radius:50%;
+  background:#fff;border:2.5px solid var(--brand)}
+.tl .ev.gray:before{border-color:#c3c8d8}
+.tl .ev.neg:before{border-color:var(--bad)}
+.tl .tm{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
+.tl .tx{font-size:13px}
+.kv{display:flex;gap:10px;font-size:12px;color:var(--sub);margin-bottom:16px;flex-wrap:wrap}
+.kv b{color:var(--ink)}
+.acts{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.mask{position:fixed;inset:0;background:rgba(20,23,34,.28);opacity:0;pointer-events:none;transition:.25s;z-index:50}
+.mask.on{opacity:1;pointer-events:auto}
+
+/* ai output */
+.ai-box{background:linear-gradient(180deg,#fbfbff,#f7f8ff);border:1px solid #dfe2fb;border-radius:10px;
+  padding:16px 18px;font-size:13.5px;white-space:pre-wrap;min-height:120px;line-height:1.75}
+.ai-box .cursor{display:inline-block;width:7px;height:15px;background:var(--brand);vertical-align:-2px;
+  animation:blink .9s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+.thinking{display:inline-flex;gap:4px;align-items:center;color:var(--brand);font-size:12.5px}
+.thinking i{width:5px;height:5px;border-radius:50%;background:var(--brand);animation:b 1s infinite}
+.thinking i:nth-child(2){animation-delay:.15s}.thinking i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+/* ledger */
+.lrow{display:grid;grid-template-columns:150px 1fr 66px;gap:14px;align-items:center;padding:13px 0;border-bottom:1px dashed var(--line)}
+.lrow:last-child{border-bottom:0}
+.lname{display:flex;align-items:center;gap:9px;font-weight:600}
+.bar{height:26px;background:#eff1f6;border-radius:7px;overflow:hidden;display:flex}
+.bar i{transition:width .9s cubic-bezier(.4,0,.2,1)}
+.pct{text-align:right;font-weight:800;font-variant-numeric:tabular-nums;font-size:16px;letter-spacing:-.5px}
+.pct.flash{animation:fl 1.2s ease}
+@keyframes fl{0%,60%{color:var(--warn);transform:scale(1.14)}100%{color:var(--ink);transform:none}}
+.sub-bar{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.chip{font-size:10.5px;padding:1px 7px;border-radius:20px;background:#f1f2f7;color:#4b5268;font-weight:600}
+.chip.pos{background:#e7f7ee;color:#15803d}
+.chip.neg{background:#fdecec;color:#b91c1c}
+.chip.adj{background:#fff4e0;color:#92400e}
+.chip.new{background:var(--brand-soft);color:var(--brand)}
+.ring{width:170px;height:170px;border-radius:50%;margin:6px auto 0;position:relative;transition:background .9s}
+.ring:after{content:"";position:absolute;inset:26px;background:#fff;border-radius:50%}
+.ring .c{position:absolute;inset:26px;display:grid;place-items:center;z-index:2;text-align:center}
+.ring .c b{font-size:24px;letter-spacing:-1px;display:block;line-height:1.1}
+.ring .c s{text-decoration:none;font-size:10.5px;color:var(--sub)}
+
+/* dispute */
+.disp{border-left:3px solid var(--warn);background:#fffbf3;border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:14px}
+.disp h4{font-size:13.5px;margin-bottom:4px}
+.disp .who{font-size:12px;color:var(--sub);margin-bottom:9px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--sub);font-weight:600;font-size:11px;border-bottom:1px solid var(--line);padding:7px 8px}
+td{padding:9px 8px;border-bottom:1px solid #f1f2f7;vertical-align:top}
+td b{font-weight:600}
+.ok{color:var(--ok);font-weight:700}
+.no{color:var(--bad);font-weight:700}
+.banner{background:#e7f7ee;border:1px solid #b7e6c9;color:#15803d;padding:11px 14px;border-radius:9px;
+  font-size:13px;font-weight:600;margin-bottom:16px;display:none}
+.banner.on{display:block;animation:fade .3s}
+.foot{font-size:11.5px;color:#9aa0b4;text-align:center;margin-top:34px;line-height:1.9}
+
+/* modal */
+#modal,#tmodal{position:fixed;inset:0;background:rgba(20,23,34,.4);display:none;place-items:center;z-index:70;padding:20px}
+#modal.on,#tmodal.on{display:grid}
+.mbox{background:#fff;border-radius:16px;padding:24px;width:min(420px,100%);box-shadow:0 24px 60px rgba(0,0,0,.2);animation:fade .25s}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:5px}
+.field input,.field textarea,.field select{width:100%;padding:9px 11px;border:1px solid var(--line);
+  border-radius:8px;background:#fbfbfd;outline:none}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.macts{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+#toast{position:fixed;left:50%;bottom:36px;transform:translate(-50%,24px);background:#151722;color:#fff;
+  padding:11px 20px;border-radius:11px;font-size:13px;font-weight:500;opacity:0;transition:.3s;z-index:90;pointer-events:none;
+  max-width:min(520px,90vw);text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+.hint{font-size:11.5px;color:var(--sub);margin-top:5px}
+@media(max-width:1180px){.pj{display:none}}
+@media(max-width:1000px){.board{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:960px){.topbar{gap:10px;padding:0 12px}nav button{padding:6px 9px;font-size:12.5px}.avatars{display:none}}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+@media print{.topbar,nav,.acts,.btn,#drawer,.mask,#modal,#tmodal,#toast{display:none!important}
+  body{background:#fff}main{padding:0}.card{box-shadow:none;border-color:#ddd}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><span class="dot">干</span>谁在干活<span style="font-weight:400;color:var(--sub);font-size:12px">WhoDidIt</span></div>
+  <div class="pj">《软件工程》第 4 组 · 校园二手书平台 · 第 6 周</div>
+  <nav id="nav">
+    <button data-v="board" class="on">任务看板</button>
+    <button data-v="report">AI 周报</button>
+    <button data-v="ledger">贡献结算单</button>
+    <button data-v="dispute">异议仲裁<span class="flag" id="dflag"></span></button>
+  </nav>
+  <div class="avatars" id="avatars"></div>
+</header>
+
+<main>
+
+<!-- ============ BOARD ============ -->
+<section class="view on" id="v-board">
+  <div class="h1row">
+    <h1>任务看板</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn s" onclick="openM('tmodal')">＋ 新建任务</button>
+      <button class="btn s g" onclick="openM('modal')">新建小组</button>
+      <button class="btn s g" onclick="toast('已邀请 5 位组员，链接有效期 7 天（原型模拟）')">邀请组员</button>
+      <button class="btn s p" onclick="go('ledger')">生成结算单 →</button>
+    </div>
+  </div>
+  <p class="note">贡献值由系统依据<b>真实协作痕迹</b>自动累计，不需要任何人自评或互评打分。<b style="color:var(--brand)">现在就可以自己建一个任务、认领并验收，占比会当场变化。</b></p>
+
+  <div class="card pad" style="margin-bottom:18px">
+    <div class="sec-title">实时贡献占比 <span class="hint">— 随任务提交与验收自动重算，全体组员可见</span></div>
+    <div class="strip" id="strip"></div>
+    <div class="leg" id="leg"></div>
+  </div>
+
+  <div class="board" id="board"></div>
+  <p class="foot"><span id="statLine"></span><br>点击任意任务卡查看证据链，并在卡片内完成认领 / 提交 / 验收</p>
+</section>
+
+<!-- ============ REPORT ============ -->
+<section class="view" id="v-report">
+  <h1>AI 周报</h1>
+  <p class="note">每周日晚自动汇总，替组长省下写周报的 40 分钟，也让划水在书面材料里藏不住。</p>
+  <div class="grid2">
+    <div class="card pad">
+      <div class="sec-title"><span class="ai">AI</span>第 6 周小组进展</div>
+      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn p" id="genReport" onclick="runReport()">生成周报</button>
+        <button class="btn g" onclick="toast('已发送到组内群（原型模拟）')">发送到群</button>
+      </div>
+      <div class="ai-box" id="reportBox"><span style="color:var(--sub)">点击「生成周报」，AI 将读取当前全部任务痕迹生成。<br>演示时点它。</span></div>
+    </div>
+    <div class="card pad">
+      <div class="sec-title">本周风险提醒 <span class="hint">— 依据当前看板实时计算</span></div>
+      <div id="risks"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LEDGER ============ -->
+<section class="view" id="v-ledger">
+  <div class="h1row">
+    <h1>贡献结算单</h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn s p" id="genDoc" onclick="runDoc()">一键生成教师版说明</button>
+      <button class="btn s" onclick="window.print()">导出 PDF</button>
+    </div>
+  </div>
+  <p class="note" id="ledgerNote"></p>
+
+  <div class="grid2">
+    <div class="card pad">
+      <div class="sec-title">成员构成明细 <span class="hint">— 占比按全组贡献分归一化</span></div>
+      <div id="ledger"></div>
+    </div>
+    <div class="card pad">
+      <div class="sec-title">组内分布</div>
+      <div class="ring" id="ring"><div class="c"><b id="ringTop">—</b><s>前两人合计<br><span id="ringBot">—</span></s></div></div>
+      <div class="leg" id="leg2" style="margin-top:16px;flex-direction:column;gap:7px"></div>
+      <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+        <div class="sec-title"><span class="ai">AI</span>教师版说明</div>
+        <div class="ai-box" id="docBox" style="min-height:96px;font-size:13px"><span style="color:var(--sub)">尚未生成。点右上角按钮。</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DISPUTE ============ -->
+<section class="view" id="v-dispute">
+  <h1>异议与仲裁</h1>
+  <p class="note">结算单不是黑箱。任何组员可对单条贡献提出申诉，AI 核对证据链后由组长／教师裁决，结算值实时回写。</p>
+  <div class="banner" id="resolved"></div>
+
+  <div class="card pad" id="dispCard" style="margin-bottom:16px">
+    <div class="disp">
+      <h4>异议 #1 · 任务 #07 的提交归属有误</h4>
+      <div class="who">王磊 于 09-21 22:14 发起 · 影响 3.2 分</div>
+      <p style="font-size:13px;margin-bottom:12px">「订单模块的前端联调是我 09-16 到 09-17 做的，但最后合并 PR 的是赵悦，痕迹挂在了她名下。」</p>
+    </div>
+    <div class="sec-title"><span class="ai">AI</span>证据链比对</div>
+    <table>
+      <tr><th>时间</th><th>痕迹</th><th>系统归属</th><th>AI 判定</th></tr>
+      <tr><td>09-16 21:03</td><td>本地提交 · 组件拆分 ×4</td><td>王磊</td><td class="ok">实际执行者</td></tr>
+      <tr><td>09-17 02:41</td><td>联调截图 6 张</td><td>王磊</td><td class="ok">实际执行者</td></tr>
+      <tr><td>09-17 19:20</td><td>PR #23 合并</td><td>赵悦</td><td class="no">仅执行合并动作</td></tr>
+      <tr><td>09-17 19:24</td><td>验收通过</td><td>陈昊</td><td>—</td></tr>
+    </table>
+    <div style="background:var(--brand-soft);border-radius:9px;padding:12px 14px;margin:14px 0;font-size:13px">
+      <b>AI 建议：</b>将任务 #07 的执行权重 3.2 分由「合并人」转移至「实际执行人」，赵悦保留合并与验收动作的 0.6 分。置信度 0.89。
+    </div>
+    <div class="acts">
+      <button class="btn p" id="adopt" onclick="adopt()">采纳并回写结算单</button>
+      <button class="btn" onclick="toast('已驳回：需补充 09-17 之前的协作记录')">驳回</button>
+      <button class="btn g" onclick="toast('已升级给指导教师（原型模拟）')">升级给教师</button>
+    </div>
+  </div>
+
+  <div class="card pad">
+    <div class="sec-title">发起新异议</div>
+    <div class="field"><label>针对条目</label><select id="dispTarget"></select></div>
+    <div class="field"><label>理由</label><textarea id="dispWhy" rows="3" placeholder="请说明你认为归属有误的地方，AI 会自动拉取相关时间线…">示例：这条会议记录我提前 20 分钟进入并整理了议题…</textarea></div>
+    <button class="btn" onclick="newDispute()">提交异议</button>
+    <p class="hint">异议提交后进入待仲裁状态，所有成员可查看比对过程。</p>
+  </div>
+</section>
+
+<p class="foot" style="margin-top:8px">可点击原型 · 初始数据为课程演示用模拟数据 · 无后端<br>
+<button class="btn s g" onclick="location.reload()" style="margin-top:6px">↺ 重置为初始演示数据（刷新即回到干净状态）</button></p>
+</main>
+
+<!-- drawer -->
+<div class="mask" id="mask" onclick="closeD()"></div>
+<aside id="drawer">
+  <div class="dh"><h3 id="dTitle"></h3><button class="x" onclick="closeD()">×</button></div>
+  <div class="dbody" id="dBody"></div>
+</aside>
+
+<!-- 新建小组 -->
+<div id="modal"><div class="mbox">
+  <h3 style="font-size:16px;margin-bottom:4px">新建小组</h3>
+  <p class="hint" style="margin-bottom:16px">3 步、90 秒内完成初始化 —— 立项书里写的「零学习成本」承诺</p>
+  <div class="field"><label>项目名称</label><input id="gName" value="校园二手书平台"></div>
+  <div class="field"><label>组员（用逗号分隔）</label><input id="gMem" value="陈昊, 林嘉, 王磊, 赵悦, 周子睿"></div>
+  <div class="field"><label>周期</label><select><option>第 5 – 16 周</option><option>自定义日期</option></select></div>
+  <div class="macts">
+    <button class="btn" onclick="closeM()">取消</button>
+    <button class="btn p" onclick="closeM();toast('小组已创建 · 已向 5 位组员发送邀请（原型模拟）')">创建并邀请</button>
+  </div>
+</div></div>
+
+<!-- 新建任务 -->
+<div id="tmodal"><div class="mbox">
+  <h3 style="font-size:16px;margin-bottom:4px">新建任务</h3>
+  <p class="hint" style="margin-bottom:16px">任务建好即进入「待认领」，认领人、提交与验收都会写入证据链</p>
+  <div class="field"><label>任务标题</label><input id="tTitle" placeholder="例：结算单页面 UI"></div>
+  <div class="row2">
+    <div class="field"><label>负责人（可留空待认领）</label><select id="tWho"></select></div>
+    <div class="field"><label>贡献分</label><input id="tPts" type="number" step="0.1" min="0.1" max="20" value="2.5"></div>
+  </div>
+  <div class="field"><label>截止日期</label><input id="tDue" placeholder="例：09-28"></div>
+  <div class="macts">
+    <button class="btn" onclick="closeM()">取消</button>
+    <button class="btn p" onclick="addTask()">创建任务</button>
+  </div>
+</div></div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= 成员与贡献构成 ================= */
+const M=[
+ {id:'chen', n:'陈昊', r:'组长 / 后端', c:'#4f46e5'},
+ {id:'lin',  n:'林嘉', r:'前端',       c:'#0ea5e9'},
+ {id:'zhao', n:'赵悦', r:'文档 / 测试', c:'#10b981'},
+ {id:'wang', n:'王磊', r:'前端 / 联调', c:'#f59e0b'},
+ {id:'zhou', n:'周子睿',r:'未分配',    c:'#94a3b8'},
+];
+const mem=id=>M.find(m=>m.id===id)||{n:'—',c:'#999'};
+const name=id=>mem(id).n;
+const col=id=>mem(id).c;
+
+/* 贡献构成：每项为 [说明, 分值]，负数为扣分 */
+const base={
+ chen:[['交付任务 18 分',18],['验收他人 9 分',9],['主动补位 4 分',4]],
+ lin :[['交付任务 17 分',17],['验收他人 6 分',6],['会议记录 4 分',4]],
+ zhao:[['交付任务 14 分',14],['文档产出 5 分',5]],
+ wang:[['交付任务 16 分',16],['超时扣分 −2 分',-2]],
+ zhou:[['交付任务 12 分',12],['缺席扣分 −3 分',-3]],
+};
+let adj={zhao:0, wang:0};   /* 仲裁调整，初始为 0 */
+
+const raw=id=>base[id].reduce((s,x)=>s+x[1],0)+(adj[id]||0);
+const SUM=()=>M.reduce((a,m)=>a+raw(m.id),0);
+const pct=id=>raw(id)/SUM()*100;
+
+/* ================= 任务与证据链 ================= */
+const TASKS=[
+ {id:'06',c:'done',   t:'需求访谈：12 位二手书买家',a:'lin', p:3.4,due:'09-14'},
+ {id:'07',c:'done',   t:'订单模块前端联调',        a:'zhao',p:3.2,due:'09-17',dispute:1},
+ {id:'08',c:'done',   t:'库存表结构设计',          a:'chen',p:2.8,due:'09-16'},
+ {id:'09',c:'review', t:'登录与鉴权接口',          a:'chen',p:3.1,due:'09-20'},
+ {id:'10',c:'review', t:'测试用例 40 条',          a:'zhao',p:2.6,due:'09-21'},
+ {id:'11',c:'doing',  t:'支付接口联调',            a:'wang',p:3.0,due:'09-15',late:3},
+ {id:'12',c:'doing',  t:'书籍搜索与筛选',          a:'lin', p:3.5,due:'09-25'},
+ {id:'13',c:'todo',   t:'结算单页面 UI',           a:null,  p:2.4,due:'09-28'},
+ {id:'14',c:'todo',   t:'部署与域名',              a:null,  p:1.8,due:'10-01'},
+];
+const COLS=[['todo','待认领'],['doing','进行中'],['review','待验收'],['done','已完成']];
+const stName=s=>(COLS.find(x=>x[0]===s)||[])[1]||s;
+
+const EVID={
+ '07':[['09-15 20:11','王磊 认领任务 #07','gray'],
+       ['09-16 21:03','王磊 本地提交：组件拆分 ×4','ok'],
+       ['09-17 02:41','王磊 上传联调截图 6 张','ok'],
+       ['09-17 19:20','赵悦 合并 PR #23','gray'],
+       ['09-17 19:24','陈昊 验收通过 · 备注：接口字段已补齐','ok'],
+       ['09-17 19:24','贡献 +3.2 分 → 记入 赵悦 名下','gray']],
+};
+/* 为种子任务补齐与其状态相符的痕迹 */
+TASKS.forEach(t=>{
+  if(EVID[t.id])return; const a=t.a,e=[];
+  if(a){
+    e.push(['09-18 10:02',name(a)+' 认领任务 #'+t.id,'gray']);
+    if(t.c!=='doing')e.push(['09-19 16:40',name(a)+' 提交产出：'+t.t,'ok']);
+    if(t.c==='review')e.push(['09-20 09:10','陈昊 发起验收','gray']);
+    if(t.c==='done'){e.push(['09-20 09:15','陈昊 验收通过','ok']);
+      e.push(['09-20 09:15','贡献 +'+t.p+' 分 → 记入 '+name(a)+' 名下','ok']);}
+  }
+  EVID[t.id]=e;
+});
+
+/* ================= 工具 ================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const pad=n=>String(n).padStart(2,'0');
+const now=()=>{const d=new Date();return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`};
+function av(id,big){return `<span class="mini" style="background:${col(id)};${big?'width:26px;height:26px;font-size:11px':''}">${name(id)[0]}</span>`}
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3000)}
+function ev(id){return EVID[id]||(EVID[id]=[])}
+let freshId=null, flashId=null;
+
+/* ================= 渲染 ================= */
+function renderAvatars(){
+  $('#avatars').innerHTML=M.map(m=>`<span class="a" style="background:${m.c}" title="${m.n} · ${pct(m.id).toFixed(1)}%">${m.n[0]}</span>`).join('');
+}
+function renderBoard(){
+  $('#board').innerHTML=COLS.map(([k,label])=>{
+    const list=TASKS.filter(t=>t.c===k);
+    return `<div class="col"><div class="col-h">${label}<b>${list.length}</b></div>
+      ${list.map(t=>`<div class="task ${t.id===freshId?'fresh':''}" onclick="openTask('${t.id}')">
+        <div class="t">${t.t}</div>
+        <div class="m">${t.a?av(t.a):'<span class="pill">未认领</span>'}
+          <span class="pill">${t.p} 分</span>
+          ${t.late?`<span class="pill d">逾期 ${t.late}d</span>`:''}
+          ${t.dispute?'<span class="pill w">有异议</span>':''}
+          <span style="margin-left:auto;font-size:11px">👁 ${ev(t.id).length}</span>
+        </div></div>`).join('')
+      ||'<div style="font-size:12px;color:#a8adbf;text-align:center;padding:14px">—</div>'}
+    </div>`}).join('');
+  const done=TASKS.filter(t=>t.c==='done').length;
+  $('#statLine').innerHTML=`任务 ${TASKS.length} 张（已完成 ${done}） · 提交痕迹 ${TASKS.reduce((s,t)=>s+ev(t.id).length,0)} 条 · 全组贡献分合计 ${SUM().toFixed(1)}`;
+}
+function renderStrip(){
+  $('#strip').innerHTML=M.map(m=>`<i style="width:${pct(m.id)}%;background:${m.c}"></i>`).join('');
+  $('#leg').innerHTML=M.map(m=>`<span><em style="background:${m.c}"></em>${m.n} <b>${pct(m.id).toFixed(1)}%</b></span>`).join('');
+}
+function renderLedger(){
+  const rows=[...M].sort((a,b)=>pct(b.id)-pct(a.id));
+  $('#ledger').innerHTML=rows.map(m=>{
+    const p=pct(m.id), neg=m.id===flashId;
+    return `<div class="lrow"><div class="lname">${av(m.id,1)}<div>${m.n}<div style="font-size:11px;color:var(--sub);font-weight:400">${m.r}</div></div></div>
+    <div><div class="bar">${base[m.id].map(([l,x])=>`<i style="width:${Math.abs(x)/SUM()*100}%;background:${x<0?'#fca5a5':m.c};${x<0?'opacity:.55':''}"></i>`).join('')}
+      ${(adj[m.id]||0)?`<i style="width:${Math.abs(adj[m.id])/SUM()*100}%;background:${adj[m.id]>0?'#fb923c':'#fdba74'}"></i>`:''}</div>
+      <div class="sub-bar">${base[m.id].map(([l,x])=>`<span class="chip ${x<0?'neg':''} ${/^新增/.test(l)?'new':''}">${l}</span>`).join('')}
+        ${(adj[m.id]||0)?`<span class="chip adj">异议调整 ${adj[m.id]>0?'+':''}${adj[m.id]} 分</span>`:''}</div>
+    </div><div class="pct ${neg?'flash':''}">${p.toFixed(1)}%</div></div>`}).join('');
+  let acc=0;
+  const stops=M.map(m=>{const a=acc;acc=acc+pct(m.id)/100*360;return `${m.c} ${a}deg ${acc}deg`}).join(',');
+  $('#ring').style.background=`conic-gradient(${stops})`;
+  const top2=pct(rows[0].id)+pct(rows[1].id);
+  $('#ringTop').textContent=top2.toFixed(0)+'%';
+  $('#ringBot').textContent=`${rows[0].n} + ${rows[1].n}`;
+  $('#leg2').innerHTML=rows.map(m=>`<span><em style="background:${m.c}"></em>${m.n} <b>${pct(m.id).toFixed(1)}%</b></span>`).join('');
+  const nAdj=Object.values(adj).filter(v=>v).length;
+  $('#ledgerNote').innerHTML=`周期 09-08 → 09-22 · 依据 ${TASKS.reduce((s,t)=>s+ev(t.id).length,0)} 条可追溯痕迹 · 每位组员的百分比都可点开到原始证据`
+    +(nAdj?` · <b style="color:#b45309">含 1 次异议调整</b>`:'');
+}
+function renderRisks(){
+  const late=TASKS.filter(t=>t.late), noSub=TASKS.filter(t=>t.a&&t.c==='doing'&&!t.late);
+  const z=pct('zhou');
+  $('#risks').innerHTML=`
+   ${late.map(t=>`<div class="disp" style="border-left-color:var(--bad);background:#fff5f5">
+     <h4>${name(t.a)} · 任务 #${t.id} 逾期 ${t.late} 天</h4><div class="who">${t.t} · 原定 ${t.due}</div>
+     <div class="acts"><button class="btn s" onclick="toast('已提醒 @${name(t.a)} 并同步组长')">提醒</button>
+     <button class="btn s" onclick="splitAndReclaim('${t.id}')">拆包重派</button></div></div>`).join('')}
+   <div class="disp"><h4>周子睿 · 连续 3 次未签到</h4><div class="who">第 4/5/6 周例会 · 当前结算值 ${z.toFixed(1)}%</div>
+     <div class="acts"><button class="btn s" onclick="toast('已生成一对一沟通提纲（原型模拟）')">生成沟通提纲</button>
+     <button class="btn s" onclick="go('dispute')">查看结算影响</button></div></div>
+   ${noSub.length?`<div class="disp" style="border-left-color:#c3c8d8;background:#fafbfd"><h4 style="color:var(--sub)">另有 ${noSub.length} 项进行中任务尚无提交痕迹</h4>
+     <div class="who">系统将在 48 小时无动作时自动提醒负责人</div></div>`:''}`;
+}
+function fillSelects(){
+  const opts=M.map(m=>`<option value="${m.id}">${m.n}</option>`).join('');
+  $('#tWho').innerHTML=`<option value="">— 留空，开放认领 —</option>`+opts;
+  $('#dispTarget').innerHTML=TASKS.map(t=>`<option>${t.id==='07'?'':''}任务 #${t.id} · ${t.t}${t.a?'（'+name(t.a)+'）':''}</option>`).join('');
+}
+function refresh(){renderBoard();renderStrip();renderLedger();renderAvatars();renderRisks();fillSelects();}
+
+/* ================= 视图切换 ================= */
+function go(v){$$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  $$('.view').forEach(s=>s.classList.remove('on'));$('#v-'+v).classList.add('on');scrollTo({top:0,behavior:'smooth'})}
+$$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+function openM(id){closeM();$('#'+id).classList.add('on');const f=$('#'+id+' input');f&&setTimeout(()=>f.focus(),60)}
+function closeM(){$$('#modal,#tmodal').forEach(m=>m.classList.remove('on'))}
+
+/* ================= 任务详情抽屉（真实操作入口） ================= */
+let cur=null;
+function openTask(id){
+  cur=id; const t=TASKS.find(x=>x.id===id), list=ev(id);
+  $('#dTitle').innerHTML=`任务 #${id} · ${t.t}`;
+  $('#dBody').innerHTML=`<div class="kv"><span>负责人 <b>${t.a?name(t.a):'未认领'}</b></span><span>贡献分 <b>${t.p}</b></span>
+    <span>截止 <b>${t.due}</b></span><span>状态 <b>${stName(t.c)}</b></span>
+    ${t.late?`<span style="color:var(--bad)"><b>逾期 ${t.late} 天</b></span>`:''}</div>
+    <div class="sec-title">证据链 <span class="hint">— 结算值的唯一依据</span></div>
+    ${list.length?`<div class="tl">${list.map(([tm,tx,k])=>`<div class="ev ${k==='gray'?'gray':''}"><div class="tm">${tm}</div><div class="tx">${tx}</div></div>`).join('')}</div>`
+      :'<div style="color:var(--sub);font-size:13px;padding:8px 0">暂无痕迹。认领后这里会自动记录。</div>'}
+    <div class="acts" style="margin-top:20px">${actionsFor(t)}</div>`;
+  $('#drawer').classList.add('on');$('#mask').classList.add('on');
+}
+function actionsFor(t){
+  let out=`<button class="btn s" onclick="toast('已查看完整提交内容（原型模拟）')">查看产出</button>`;
+  if(!t.a){
+    out+=`<select id="whoSel" style="padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#fff">${M.map(m=>`<option value="${m.id}">${m.n}</option>`).join('')}</select>
+    <button class="btn s p" onclick="doClaim()">认领任务</button>`;
+  } else if(t.c==='doing'){
+    out+=`<button class="btn s p" onclick="doSubmit()">提交产出</button>`;
+  } else if(t.c==='review'){
+    out+=`<button class="btn s p" onclick="doAccept()">验收通过 → 计入结算</button>`;
+  }
+  if(t.c!=='done') out+=`<button class="btn s g" onclick="closeD();go('dispute')">对此条发起异议</button>`;
+  return out;
+}
+function closeD(){$('#drawer').classList.remove('on');$('#mask').classList.remove('on')}
+
+/* ================= 真实写入：认领 / 提交 / 验收 / 新建 ================= */
+function doClaim(){
+  const t=TASKS.find(x=>x.id===cur), who=$('#whoSel').value;
+  t.a=who; t.c='doing'; freshId=t.id;
+  ev(t.id).push([now(),name(who)+' 认领任务 #'+t.id,'gray']);
+  refresh(); openTask(t.id);
+  toast(`${name(who)} 已认领 #${t.id}，任务进入「进行中」`);
+}
+function doSubmit(){
+  const t=TASKS.find(x=>x.id===cur);
+  t.c='review'; t.late=null; freshId=t.id;
+  ev(t.id).push([now(),name(t.a)+' 提交产出：'+t.t,'ok']);
+  ev(t.id).push([now(),'系统已捕获提交痕迹，等待他人验收','gray']);
+  refresh(); openTask(t.id);
+  toast(`#${t.id} 已提交，进入「待验收」`);
+}
+function doAccept(){
+  const t=TASKS.find(x=>x.id===cur);
+  t.c='done'; freshId=t.id; flashId=t.a;
+  ev(t.id).push([now(),'陈昊 验收通过','ok']);
+  ev(t.id).push([now(),'贡献 +'+t.p+' 分 → 记入 '+name(t.a)+' 名下','ok']);
+  base[t.a].push(['新增交付 '+t.p+' 分',t.p]);
+  refresh(); closeD(); go('board');
+  toast(`已验收 · ${name(t.a)} 贡献分 +${t.p} → 结算值现为 ${pct(t.a).toFixed(1)}%`);
+  setTimeout(()=>{flashId=null},1500);
+}
+function addTask(){
+  const title=$('#tTitle').value.trim()||'未命名任务';
+  const who=$('#tWho').value||null;
+  const p=Math.max(.1,+( $('#tPts').value||2.5 )).toFixed(1);
+  const due=$('#tDue').value.trim()||'待定';
+  const id=String(Math.max(...TASKS.map(t=>+t.id))+1).padStart(2,'0');
+  const t={id,c:who?'doing':'todo',t:title,a:who,p:+p,due};
+  TASKS.push(t); freshId=id;
+  EVID[id]=who?[[now(),name(who)+' 认领任务 #'+id,'gray']]:[];
+  closeM(); refresh(); $('#tTitle').value=''; $('#tDue').value='';
+  toast(`任务 #${id}「${title}」已创建 · ${who?name(who)+' 直接认领':'开放认领中'}`);
+}
+function splitAndReclaim(id){
+  const t=TASKS.find(x=>x.id===id);
+  const a=String(Math.max(...TASKS.map(x=>+x.id))+1).padStart(2,'0');
+  const b=String(+a+1).padStart(2,'0');
+  t.c='done'; t.t+='（已拆包）'; t.late=null;
+  ev(t.id).push([now(),'组长将任务拆分为两包并开放认领','gray']);
+  [[a,t.t+' · 上半'],[b,t.t+' · 下半']].forEach(([nid,tt])=>{
+    TASKS.push({id:nid,c:'todo',t:tt,a:null,p:+(t.p/2).toFixed(1),due:t.due}); EVID[nid]=[];});
+  freshId=a; refresh(); closeD();
+  toast(`#${id} 已拆为 #${a} / #${b}，共 ${(t.p/2).toFixed(1)} 分 × 2，开放认领`);
+}
+function newDispute(){
+  const why=$('#dispWhy').value.trim();
+  if(!why){toast('请先说明理由，AI 需要依据去比对时间线');return}
+  toast('已提交 · AI 正在比对相关时间线（原型模拟，V1 接入模型）');
+  $('#dispWhy').value='';
+}
+
+/* ================= AI 文本 ================= */
+let typing=false;
+function type(el,text,done){
+  typing=true; el.innerHTML='';
+  const s=document.createElement('span'); el.appendChild(s);
+  const cur2=document.createElement('span'); cur2.className='cursor'; el.appendChild(cur2);
+  let i=0;
+  (function step(){
+    if(i<=text.length){s.textContent=text.slice(0,i);i+=2;setTimeout(step,14)}
+    else{cur2.remove();typing=false;done&&done()}
+  })();
+}
+function reportText(){
+  const done=TASKS.filter(t=>t.c==='done').length;
+  const late=TASKS.filter(t=>t.late);
+  return `【第 6 周 · 校园二手书平台】
+
+■ 已完成 ${done} / ${TASKS.length} 项，待验收 ${TASKS.filter(t=>t.c==='review').length} 项，逾期 ${late.length} 项。
+
+■ 关键进展
+1. 需求访谈收口：12 位受访买家，核心结论是"验书"信任成本 > 价格，定价功能优先级下调。
+2. 订单模块前端联调完成（PR #23），库存表结构定稿。
+3. 搜索与筛选进入实现，预计 09-25 提测。
+
+■ 风险
+${late.length?late.map(t=>`· ${name(t.a)} 的任务 #${t.id}「${t.t}」已逾期 ${t.late} 天且无提交痕迹，建议拆包后开放认领。`).join('\n'):'· 本周无逾期任务。'}
+· 周子睿连续 3 次例会未签到，当前结算值为 ${pct('zhou').toFixed(1)}%。
+
+■ 下周
+· 结算单页面 UI 需在本周内定人，否则影响期末演示。
+
+（本周报由系统依据 ${TASKS.reduce((s,t)=>s+ev(t.id).length,0)} 条协作痕迹自动生成，未引用任何自评内容）`;
+}
+function docText(){
+  const rows=[...M].sort((a,b)=>pct(b.id)-pct(a.id));
+  const nAdj=Object.values(adj).filter(v=>v).length;
+  return `致 任课教师：
+
+本组 ${M.length} 人，周期 09-08 至 09-22，共产生任务卡 ${TASKS.length} 张、可追溯协作痕迹 ${TASKS.reduce((s,t)=>s+ev(t.id).length,0)} 条。
+贡献占比依据三类客观事实自动计算：① 任务交付与验收结果；② 验收他人产出的动作次数；
+③ 例会签到与逾期记录。不设自评与互评环节，避免人情分。
+
+结算结果：${rows.map(m=>m.n+' '+pct(m.id).toFixed(1)+'%').join(' · ')}。
+${nAdj?'其中存在 1 起归属异议，已按证据链完成仲裁并回写（异议 #1）。':'本期无归属异议。'}
+每位组员的百分比均可逐条点开至原始时间线，欢迎抽查复核。
+
+组长签署：陈昊    生成时间：${now()}`;
+}
+function runReport(){
+  if(typing)return; const b=$('#genReport'); b.disabled=true; b.textContent='生成中…';
+  $('#reportBox').innerHTML='<span class="thinking">正在读取 '+TASKS.reduce((s,t)=>s+ev(t.id).length,0)+' 条协作痕迹<i></i><i></i><i></i></span>';
+  setTimeout(()=>{$('#reportBox').innerHTML='';type($('#reportBox'),reportText(),()=>{b.disabled=false;b.textContent='重新生成'})},900);
+}
+function runDoc(){
+  if(typing)return; $('#genDoc').disabled=true;
+  $('#docBox').innerHTML='<span class="thinking">正在依据结算值撰写<i></i><i></i><i></i></span>';
+  setTimeout(()=>{$('#docBox').innerHTML='';type($('#docBox'),docText(),()=>{$('#genDoc').disabled=false;$('#genDoc').textContent='重新生成'})},800);
+}
+function adopt(){
+  if(adj.wang){toast('异议 #1 已处理完毕');return}
+  $('#adopt').disabled=true; $('#adopt').textContent='仲裁中…';
+  setTimeout(()=>{
+    adj={zhao:-3.2,wang:3.2}; flashId='wang';
+    refresh(); $('#dflag').style.display='none';
+    $('#resolved').textContent='✓ 异议 #1 已采纳，3.2 分已从赵悦名下调整至王磊，结算单已重算';
+    $('#resolved').classList.add('on'); $('#dispCard').style.opacity=.62;
+    $('#adopt').textContent='已采纳 ✓';
+    toast(`结算单已回写：王磊 14.0% → ${pct('wang').toFixed(1)}%，赵悦 19.0% → ${pct('zhao').toFixed(1)}%`);
+    setTimeout(()=>{flashId=null},1500);
+  },700);
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeD();closeM()}});
+fillSelects(); refresh();
+</script>
+</body>
+</html>

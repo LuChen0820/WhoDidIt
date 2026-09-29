@@ -1,0 +1,24 @@
+{
+  "name": "whodidit-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node src/demo.ts",
+    "bench": "node scripts/bench.ts",
+    "probe": "node scripts/probe.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "@fastify/static": "^10.1.5",
+    "fastify": "^5.12.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

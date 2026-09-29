@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>谁在干活 · 小组作业贡献结算台</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="topbar" id="topbar" hidden>
+  <div class="logo"><span class="dot">干</span>谁在干活</div>
+  <div class="pj" id="pjName"></div>
+  <nav id="nav">
+    <button data-act="tab" data-v="board" class="on">任务看板</button>
+    <button data-act="tab" data-v="ledger">贡献结算单</button>
+    <button data-act="tab" data-v="team">组员与邀请</button>
+  </nav>
+  <div class="who"><span id="whoName"></span>
+    <button class="btn s g" data-act="logout">退出</button>
+  </div>
+</header>
+
+<main id="app">
+  <div class="loading">加载中…</div>
+</main>
+
+<div class="mask" id="mask"></div>
+<aside id="drawer" class="drawer">
+  <div class="dh"><h3 id="dTitle"></h3><button class="x" data-act="closeDrawer">×</button></div>
+  <div class="dbody" id="dBody"></div>
+</aside>
+
+<div id="toast" class="toast"></div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

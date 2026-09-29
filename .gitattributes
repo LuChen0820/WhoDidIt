@@ -1,0 +1,10 @@
+# Windows 上 core.autocrlf 会把工作区文件转成 CRLF。
+# shell 脚本必须保持 LF，否则传到 Linux 服务器后 shebang 和行尾会让它直接跑不起来。
+*.sh    text eol=lf
+*.sql   text eol=lf
+*.js    text eol=lf
+*.ts    text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
