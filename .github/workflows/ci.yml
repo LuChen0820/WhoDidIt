@@ -1,0 +1,55 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支上的旧运行会被新提交取消，省额度
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+
+      # 四层检查按「便宜且容易挂」在前排，让失败信号最快到达
+      - name: 1/4 不变量测试（39 条）
+        run: npm test
+
+      - name: 2/4 攻击面与可达性自检
+        run: npm run probe
+
+      - name: 3/4 真 HTTP 端到端冒烟（41 项）
+        run: bash scripts/smoke.sh
+
+      - name: 4/4 Playwright 浏览器测试
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e
+
+      # 失败时把 Playwright 报告传上来，否则只能看到一行超时信息
+      - name: 上传失败诊断
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: server/playwright-report/
+          retention-days: 7
